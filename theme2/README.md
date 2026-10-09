@@ -1,0 +1,3 @@
+- Turn quantum mechanics into a creative medium: a game, music, art, an interactive experience, or something we haven't imagined. 
+- The bar is that superposition, interference, entanglement or measurement is essential to the piece, beyond simply generating randomness.
+- Take a look at a few examples of what you could do! (But don’t do these ones.) https://qollab.xyz/
