@@ -4,9 +4,9 @@ An implementation of the Quantum Approximate Optimization Algorithm (QAOA) for
 the feature-selection QUBO from `theme1/prompt_b/README.md`, built directly on
 IBM Qiskit's `EstimatorV2` / `SamplerV2` primitives.
 
-> The dataset is intentionally **not** loaded. Relevance `r` and redundancy
-> `c` are produced synthetically so the algorithm itself can be studied in
-> isolation. Swap `feature_selection_qubo(…)`'s inputs for real data when ready.
+> Data comes from the UCI Heart Disease dataset (`ucimlrepo`, id 45). Relevance
+> `r` (mutual information) and redundancy `c` (`|Pearson correlation|`) are
+> computed from the real 297-patient Cleveland subset in `data.py`.
 
 ## The problem
 
@@ -79,14 +79,28 @@ uv sync                                   # provision the venv
 uv run python theme1/prompt_b/qaoa/qaoa.py
 ```
 
-The demo builds a synthetic `n = 6, k = 3` instance and runs `p = 1, 2, 3`,
-printing each layer count's approximation ratio, the best sampled assignment,
-and the top measured bitstrings against the brute-force optimum.
+The demo loads the UCI Heart Disease dataset, computes `r`/`c`, and runs
+`p = 1, 2, 3` on the `n = 13, k = 5` problem, printing each layer count's
+approximation ratio, the best sampled assignment, and the top measured
+bitstrings against the brute-force optimum.
+
+## Data
+
+`data.py` -> `load_heart_disease()`:
+
+1. Fetch `ucimlrepo` id 45 (303 patients, 13 features).
+2. Drop rows with missing entries (Cleveland subset -> 297 patients).
+3. Binarize the 0-4 target: `0` = no disease, `1-4` = disease.
+4. `relevance` = `mutual_info_classif` (KNN estimator, `random_state=42`).
+5. `redundancy` = `|corr|` (`np.corrcoef`), diagonal zeroed.
+
+The QUBO needs only `r` and `c`, so no feature scaling is required.
 
 ## Code layout
 
 | Symbol | Purpose |
 |---|---|
+| `load_heart_disease` | Fetch, clean, binarize; compute `r` and `c` (`data.py`) |
 | `feature_selection_qubo` | Build `Q` from `r`, `c`, `λ`, `P`, `k` |
 | `qubo_to_ising` | QUBO → `(offset, h, J)` |
 | `_ising_observable` | `H_C` as a `SparsePauliOp` (explicit qubit indices) |

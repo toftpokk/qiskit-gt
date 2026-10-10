@@ -7,7 +7,13 @@ authors = [
     { name = "toftpokk", email = "toftpokk@protonmail.com" }
 ]
 requires-python = ">=3.14"
-dependencies = ["qiskit>=2.0", "numpy>=2.0", "scipy>=1.10"]
+dependencies = [
+    "qiskit>=2.0",
+    "numpy>=2.0",
+    "scipy>=1.10",
+    "ucimlrepo>=0.0.7",
+    "scikit-learn>=1.9.1",
+]
 
 [project.scripts]
 qiskit-gt = "qiskit_gt:main"

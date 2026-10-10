@@ -14,13 +14,13 @@ Notable design choices
 * ``StatevectorEstimator`` / ``StatevectorSampler`` give exact, noise-free
   simulation, which is the right ground truth to measure the *algorithm's*
   performance (as opposed to hardware noise).
-* The dataset is intentionally not loaded: every quantity the QUBO needs
-  (relevance ``r``, redundancy ``c``) is produced synthetically, so the
-  algorithm can be run and studied in isolation.
+* The relevance/redundancy terms are computed from the real UCI Heart Disease
+  dataset in ``data.py`` (``load_heart_disease``); the algorithm itself is
+  dataset-agnostic.
 
 Run the demo with::
 
-    python qaoa.py
+    uv run python theme1/prompt_b/qaoa/qaoa.py
 """
 
 from __future__ import annotations
@@ -33,6 +33,8 @@ from qiskit.circuit import Parameter
 from qiskit.primitives import StatevectorEstimator, StatevectorSampler
 from qiskit.quantum_info import SparsePauliOp
 from scipy.optimize import minimize
+
+from data import load_heart_disease
 
 
 # ---------------------------------------------------------------------------
@@ -337,25 +339,26 @@ def _bitstring_to_features(bitstring: str, n: int) -> list[int]:
 # ---------------------------------------------------------------------------
 
 def main() -> None:
-    # Synthetic feature-selection instance: 6 features, keep exactly 3.
-    n, k = 6, 3
-    rng = np.random.default_rng(42)
+    # Load the UCI Heart Disease dataset and compute r / c from real data.
+    data = load_heart_disease()
+    n = data.n_features
+    k = 5                      # the clinic can collect 5 measurements
+    lam = 0.5                  # redundancy penalty weight
+    penalty = 2.0              # force exactly k features
 
-    relevance = rng.uniform(0.2, 1.0, n)            # r_i
-    c = rng.uniform(0.0, 1.0, (n, n))               # symmetric redundancy
-    c = (c + c.T) / 2.0
-    np.fill_diagonal(c, 0.0)
-
-    lam = 0.5                                        # redundancy penalty weight
-    penalty = 2.0                                    # force exactly k features
-
-    Q = feature_selection_qubo(relevance, c, lam, penalty, k)
+    relevance = data.relevance
+    redundancy = data.redundancy
+    Q = feature_selection_qubo(relevance, redundancy, lam, penalty, k)
     opt, opt_x, _ = brute_force(Q, n)
 
-    print("feature-selection QUBO (n=6, k=3, lambda=0.5, P=2.0)")
-    print(f"  relevance    r = {np.round(relevance, 3).tolist()}")
-    print(f"  brute-force optimum = {opt:.6f}  assignment={opt_x} "
-          f"(keeps {sum(opt_x)} features)")
+    print(f"UCI Heart Disease feature selection (n={n}, k={k}, "
+          f"lambda={lam}, P={penalty})")
+    print(f"  {data.n_samples} patients, {n} features")
+    print("  relevance (mutual information with label), descending:")
+    for name, r in data.relevance_ranking():
+        print(f"    {name:9s} {r:.4f}")
+    print(f"  brute-force optimum = {opt:.6f}")
+    print(f"    selected = {[data.feature_names[i] for i in range(n) if opt_x[i]]}")
     print()
 
     for p in (1, 2, 3):
