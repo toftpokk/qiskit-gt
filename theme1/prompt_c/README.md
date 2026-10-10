@@ -1,0 +1,3 @@
+- A seismologist has a big, unsorted list of earthquakes and wants the ones matching a rare, expensive-to-check condition (say, shallow and high-magnitude).
+- Classically you check entries one at a time: with N events, finding a single match costs about       checks on average. 
+- Grover's algorithm finds a marked item in roughly $\pi/4 \sqrt{n}$ oracle calls. You will measure that gap on real data.
