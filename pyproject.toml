@@ -7,7 +7,7 @@ authors = [
     { name = "toftpokk", email = "toftpokk@protonmail.com" }
 ]
 requires-python = ">=3.14"
-dependencies = []
+dependencies = ["qiskit>=2.0", "numpy>=2.0", "scipy>=1.10"]
 
 [project.scripts]
 qiskit-gt = "qiskit_gt:main"
