@@ -11,10 +11,10 @@ Changes from v1 (marked [NEW] / [CHANGED] in comments):
   [CHANGED] Default SA budgets are finer so the cost comparison can interpolate the
             budget at which SA reaches 90% success.
 
-Run (quick):   python qaoa_scaling.py --n 13 16 --pmax 3 --restarts 4 --seeds 0 1 2
-Run (fuller):  python qaoa_scaling.py --n 13 16 20 --pmax 5 --seeds 0 1 2 3 4 \
+Run (quick):   uv run python src/qaoa_scaling.py --n 13 16 --pmax 3 --restarts 4 --seeds 0 1 2
+Run (fuller):  uv run python src/qaoa_scaling.py --n 13 16 20 --pmax 5 --seeds 0 1 2 3 4 \
                    --mi-seeds 0 1 --out results_small.json
-Then:          python plot_results.py --inputs results_small.json --outdir figures
+Then:          uv run python src/plot_results.py --inputs results_small.json --outdir figures
 """
 
 from __future__ import annotations

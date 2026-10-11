@@ -11,7 +11,7 @@ Produces three PNGs:
 Several JSON files can be passed (e.g. a small-n run with deep p and a larger-n run);
 runs are pooled by n.
 
-Run:  python plot_results.py --inputs results_small.json results_large.json \
+Run:  uv run python src/plot_results.py --inputs results_small.json results_large.json \
           --outdir figures --depths 3 5 --cost-depth 3
 """
 
