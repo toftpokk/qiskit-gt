@@ -17,7 +17,7 @@ What this script does
 
 Run with::
 
-    python qaoa_exact.py
+    uv run python src/qaoa_exact.py
 """
 
 from __future__ import annotations

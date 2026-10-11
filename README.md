@@ -9,9 +9,9 @@ Minimize overlapping information while maximizing relevancy
 
 **Datasets**
 
-UCI Heart Disease - Cleveland subset
+UCI Heart Disease - Cleveland subset (303 patients, 13 features)
 
-Relevant features: “"sex", "cp", "fbs", "restecg", "exang", "slope", "ca", "thal"
+Relevant features: "sex", "cp", "fbs", "restecg", "exang", "slope", "ca", "thal"
 
 ## Comparison to Other Methods
 
