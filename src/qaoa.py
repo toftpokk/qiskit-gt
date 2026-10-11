@@ -15,7 +15,7 @@ sampling, which sidesteps that matrix-exponential fallback.
 
 Run with::
 
-    uv run python theme1/prompt_b/qaoa/qaoa.py
+    uv run python src/qaoa.py
 """
 
 from __future__ import annotations

@@ -1,9 +1,9 @@
 """Exact QAOA for feature selection in the weight-k subspace (NumPy), plus baselines.
 
-Change markers used in this file (relative to qaoa_revised.py):
+Change markers used in this file (relative to qaoa.py):
     [NEW]      added; nothing like it existed before
-    [CHANGED]  replaces something in qaoa_revised.py (a comment says what)
-    [REUSED]   same idea/formula as qaoa_revised.py, re-implemented here
+    [CHANGED]  replaces something in qaoa.py (a comment says what)
+    [REUSED]   same idea/formula as qaoa.py, re-implemented here
 No marker on a line means it belongs to the block whose banner is above it.
 
 What this script does
@@ -17,7 +17,7 @@ What this script does
 
 Run with::
 
-    python qaoa_exact.py
+    uv run python src/qaoa_exact.py
 """
 
 from __future__ import annotations
@@ -216,7 +216,7 @@ def qiskit_crosscheck(r, c, lam, n, k, subsets, E_hat, Emin, span,    # [NEW]
     """Re-run the same QAOA in the FULL 2**n space with Qiskit-built operators.
 
     Independent pieces: (a) the cost operator comes from the QUBO -> Ising
-    conversion in qaoa_revised.py (checks that mapping with P = 0); (b) the XY
+    conversion in qaoa.py (checks that mapping with P = 0); (b) the XY
     mixer is built from Pauli XX/YY terms on all 2**n states (checks the
     subspace reduction and shows zero probability leaks out of weight k).
     This uses Qiskit *operators*, not gate-level circuits.

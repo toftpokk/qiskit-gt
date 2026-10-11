@@ -16,7 +16,7 @@ this version scale:
 Also added: exact analytic (adjoint) gradients, so training costs ~2-3 circuit
 evaluations per step instead of 2p+1 finite-difference evaluations.
 
-Run `python sparse_qaoa.py` to execute the built-in self-test.
+Run `uv run python src/sparse_qaoa.py` to execute the built-in self-test.
 """
 
 from __future__ import annotations

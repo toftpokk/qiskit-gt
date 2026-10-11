@@ -10,7 +10,7 @@ data_expanded.py. On each of ``--splits`` stratified train/test splits:
 
 lambda = 0 is the naive top-k mutual-information baseline.
 
-Run:  python evaluate_expanded.py --n 13 20 25 --lam 0.75 1.5 3.0
+Run:  uv run python src/evaluate_extended.py --n 13 20 25 --lam 0.75 1.5 3.0
 """
 
 from __future__ import annotations
