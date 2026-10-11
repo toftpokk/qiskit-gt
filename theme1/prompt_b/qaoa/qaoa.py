@@ -29,6 +29,7 @@ from qiskit_algorithms.utils import algorithm_globals
 
 from data import load_heart_disease
 
+from itertools import combinations 
 
 # ---------------------------------------------------------------------------
 # QUBO construction and brute-force reference
@@ -162,6 +163,199 @@ class _DecomposeTranspiler:
         return circuit.decompose(reps=2)
 
 
+# ===========================================================================
+# [NEW] BLOCK 1: correctness check + feasible-subspace reference
+# ===========================================================================
+ 
+def verify_hamiltonian(Q, operator: SparsePauliOp, n: int) -> None:   # [NEW]
+    """Assert the Ising operator's diagonal equals the QUBO on every bitstring.
+ 
+    H_C is diagonal in the computational basis, so we read its diagonal from a
+    sparse matrix instead of building a dense 2**n x 2**n array. Basis index m
+    has qubit i = bit i of m, matching x[i] = (m >> i) & 1.
+    """
+    diag = np.real(operator.to_matrix(sparse=True).diagonal())
+    for m in range(1 << n):
+        x = [(m >> i) & 1 for i in range(n)]
+        assert np.isclose(diag[m], qubo_value(Q, x)), (
+            f"Ising/QUBO mismatch at bitstring {m:0{n}b}"
+        )
+ 
+ 
+def feasible_table(Q, n: int, k: int) -> dict[tuple[int, ...], float]:  # [NEW]
+    """QUBO value of every size-k subset (C(n, k) entries; 1287 for 13 choose 5)."""
+    table: dict[tuple[int, ...], float] = {}
+    for S in combinations(range(n), k):
+        x = [1 if i in S else 0 for i in range(n)]
+        table[S] = qubo_value(Q, x)
+    return table
+
+# ===========================================================================
+# [NEW] BLOCK 2: distribution-based metrics (replaces the per-run metric code)
+# ===========================================================================
+ 
+def evaluate_distribution(                                  # [NEW]
+    dist: dict[str, float],
+    Q,
+    n: int,
+    k: int,
+    f_min: float,
+    f_max: float,
+    opt_full: float,
+    worst_full: float,
+) -> dict:
+    """Metrics from the final measured distribution (bitstring -> probability).
+ 
+    Returns:
+      p_feasible   total probability on bitstrings with exactly k ones
+      p_optimal    probability on the best feasible subset
+      cond_ratio   expected feasible-only ratio, conditioned on being feasible
+      best_ratio   feasible-only ratio of the best sampled feasible subset
+      best_subset  that subset (tuple of feature indices)
+      legacy_ratio the ORIGINAL full-space ratio, now from the exact sampled
+                   distribution rather than result.eigenvalue
+    """
+    f_span = f_max - f_min
+    total = sum(dist.values())
+ 
+    p_feas = 0.0
+    p_opt = 0.0
+    ratio_mass = 0.0
+    exp_energy = 0.0
+    best_v = float("inf")
+    best_S: tuple[int, ...] = ()
+ 
+    for bitstring, prob in dist.items():
+        prob = prob / total
+        x = _bitstring_to_features(bitstring, n)
+        v = qubo_value(Q, x)
+        exp_energy += prob * v
+        if sum(x) == k:
+            S = tuple(i for i in range(n) if x[i])
+            p_feas += prob
+            ratio_mass += prob * (f_max - v) / f_span
+            if np.isclose(v, f_min):
+                p_opt += prob
+            if v < best_v:
+                best_v, best_S = v, S
+ 
+    return {
+        "p_feasible": p_feas,
+        "p_optimal": p_opt,
+        "cond_ratio": ratio_mass / p_feas if p_feas > 0 else float("nan"),
+        "best_ratio": (f_max - best_v) / f_span if best_S else float("nan"),
+        "best_subset": best_S,
+        "legacy_ratio": (worst_full - exp_energy) / (worst_full - opt_full),
+    }
+ 
+ 
+def _mean_std(rows: list[dict], key: str) -> tuple[float, float]:   # [NEW]
+    vals = np.array([r[key] for r in rows], dtype=float)
+    return float(np.nanmean(vals)), float(np.nanstd(vals))
+ 
+ 
+def main() -> None:
+    data = load_heart_disease()
+    n = data.n_features
+    k = 5                      # the clinic can collect 5 measurements
+    lam = 0.75                  # redundancy penalty weight
+    penalty = 2.0              # force exactly k features
+    n_restarts = 5             # [NEW] independent QAOA runs per depth p
+ 
+    Q = feature_selection_qubo(data.relevance, data.redundancy, lam, penalty, k)
+    opt, opt_x, worst = brute_force(Q, n)
+ 
+    offset, h, J = qubo_to_ising(Q)
+    operator = _ising_operator(n, offset, h, J)
+ 
+    # ---- [NEW] sanity checks and feasible-only reference --------------------
+    verify_hamiltonian(Q, operator, n)
+ 
+    table = feasible_table(Q, n, k)
+    f_min, f_max = min(table.values()), max(table.values())
+    f_span = f_max - f_min
+    opt_subset = min(table, key=table.get)
+    assert sum(opt_x) == k and np.isclose(opt, f_min), (
+        "Penalty too small: the unconstrained optimum is not a size-k subset. "
+        "Increase `penalty`."
+    )
+    random_feasible_ratio = float(np.mean([(f_max - v) / f_span for v in table.values()]))
+    random_p_opt = 1.0 / len(table)
+    p0_legacy_ratio = (worst - offset) / (worst - opt)   # untrained uniform state
+
+    # ---- end NEW ------------------------------------------------------------
+ 
+    print(f"UCI Heart Disease feature selection via qiskit_algorithms.QAOA "
+          f"(n={n}, k={k}, lambda={lam}, P={penalty})")
+    print(f"  {data.n_samples} patients, {n} features")
+    print("  relevance (mutual information with label), descending:")
+    for name, r in data.relevance_ranking():
+        print(f"    {name:9s} {r:.4f}")
+    print(f"  brute-force optimum = {opt:.6f}")
+    print(f"    selected = {[data.feature_names[i] for i in range(n) if opt_x[i]]}")
+    # ---- [NEW] reference numbers so the results have a floor and a ceiling --
+    print(f"  full-space span (worst - opt)      : {worst - opt:.3f}")
+    print(f"  feasible-only span (max - min)     : {f_span:.4f}")
+    print(f"  untrained (p=0) legacy ratio       : {p0_legacy_ratio:.4f}   <- already high")
+    print(f"  random feasible subset ratio       : {random_feasible_ratio:.4f}")
+    print(f"  random P(optimal) = 1/{len(table)}          : {random_p_opt:.5f}")
+    # ---- end NEW ------------------------------------------------------------
+    print()
+
+    # [CHANGED] The original created one sampler and ran one QAOA per p.
+    # Now: n_restarts independent runs per p (own seeds), metrics from the
+    # final distribution, then mean +/- std across restarts.
+    for p in (1, 2, 3):
+        rows: list[dict] = []
+        total_evals = 0
+        for r in range(n_restarts):
+            seed = 100 + 10 * p + r
+            algorithm_globals.random_seed = seed
+            sampler = StatevectorSampler(default_shots=10000, seed=seed)
+            qaoa = QAOA(
+                sampler,
+                COBYLA(maxiter=300),
+                reps=p,
+                transpiler=_DecomposeTranspiler(),
+            )
+            result = qaoa.compute_minimum_eigenvalue(operator)
+            total_evals += result.cost_function_evals
+
+            # [CHANGED] was: energy = float(np.real(result.eigenvalue)) (a
+            # shot-noisy estimate) and a scan of result.eigenstate for the best
+            # value. Now every metric comes from the sampled distribution.
+            dist = {b: float(q) for b, q in result.eigenstate.items()}
+            rows.append(evaluate_distribution(
+                dist, Q, n, k, f_min, f_max, opt, worst
+            ))
+ 
+        # ---- [NEW] aggregate and report ------------------------------------
+        best_row = max(rows, key=lambda row: row["best_ratio"])
+        names = [data.feature_names[i] for i in best_row["best_subset"]]
+        found_opt = sum(row["best_subset"] == opt_subset for row in rows)
+ 
+        pf, pf_s = _mean_std(rows, "p_feasible")
+        po, po_s = _mean_std(rows, "p_optimal")
+        cr, cr_s = _mean_std(rows, "cond_ratio")
+        br, br_s = _mean_std(rows, "best_ratio")
+        lr, lr_s = _mean_std(rows, "legacy_ratio")
+ 
+        print(f"QAOA p={p} on {n} qubits, {n_restarts} restarts")
+        print(f"  P(feasible, weight={k})        : {pf:.3f} +/- {pf_s:.3f}")
+        print(f"  P(optimal subset)            : {po:.4f} +/- {po_s:.4f}"
+              f"   (random: {random_p_opt:.5f})")
+        print(f"  feasible-only ratio, E[.|feasible]: {cr:.4f} +/- {cr_s:.4f}"
+              f"   (random: {random_feasible_ratio:.4f})")
+        print(f"  best sampled feasible ratio  : {br:.4f} +/- {br_s:.4f}")
+        print(f"  restarts that sampled the optimum: {found_opt}/{n_restarts}")
+        print(f"  best subset across restarts  : {names}")
+        print(f"  legacy full-space ratio      : {lr:.4f} +/- {lr_s:.4f}"
+              f"   (p=0 baseline: {p0_legacy_ratio:.4f})")
+        print(f"  mean cost function evals     : {total_evals / n_restarts:.0f}")
+        print()
+        # ---- end NEW -------------------------------------------------------
+
+'''
 def main() -> None:
     data = load_heart_disease()
     n = data.n_features
@@ -222,7 +416,7 @@ def main() -> None:
         print(f"  most-likely bitstring: {bm['bitstring']}  (p={bm['probability']:.3f})")
         print(f"  cost function evals  : {result.cost_function_evals}")
         print()
-
+'''
 
 if __name__ == "__main__":
     main()

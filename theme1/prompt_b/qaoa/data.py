@@ -3,9 +3,9 @@
 This turns the raw dataset into the two quantities the QUBO needs (see
 ``README.md``):
 
-* ``relevance``  — ``r_i``, the mutual information between feature ``i`` and the
-  (binarized) label.
-* ``redundancy`` — ``c_ij``, the absolute Pearson correlation between features
+* ``relevance``  - ``r_i``, the mutual information between feature ``i`` and the
+  (binarized) label normalized by its maximum.
+* ``redundancy`` - ``c_ij``, the absolute Pearson correlation between features
   ``i`` and ``j``.
 
 Everything else in the pipeline (the QUBO, the QAOA ansatz, the optimizer) is
@@ -64,9 +64,18 @@ def load_heart_disease(seed: int = 42) -> HeartData:
     Xm = X.to_numpy(dtype=float)
     y_bin = (y > 0).astype(int).to_numpy()
 
+    #relevance = mutual_info_classif(
+    #    Xm, y_bin, discrete_features="auto", random_state=seed
+    #)
+
+    # Features that take a small set of integer codes (the rest are continuous).
+    DISCRETE = {"sex", "cp", "fbs", "restecg", "exang", "slope", "ca", "thal"}
+    discrete_mask = [name in DISCRETE for name in feature_names]
+
     relevance = mutual_info_classif(
-        Xm, y_bin, discrete_features="auto", random_state=seed
+        Xm, y_bin, discrete_features=discrete_mask, random_state=seed
     )
+    relevance = relevance / relevance.max()   # scale to [0, 1] to match |corr|
 
     redundancy = np.abs(np.corrcoef(Xm, rowvar=False))
     np.fill_diagonal(redundancy, 0.0)
