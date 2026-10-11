@@ -1,5 +1,7 @@
 # How We Scaled Heart Disease Screening with Quantum Approximate Optimization Algorithm (QAOA)
 
+![cost scaling](figures/fig_cost.png)
+
 ## Background
 
 **Objective**
